@@ -19,7 +19,7 @@ bot = telebot.TeleBot(cfg.token)
 months = {1:'Январь', 2:'Февраль', 3:'Март', 4:'Апрель', 5:'Май', 6:'Июнь', 7:'Июль', 8:'Август', 9:'Сентябрь', 10:'Октябрь', 11:'Ноябрь', 12:'Декабрь'}
 weekdays = {1:'Понедельник', 2:'Вторник', 3:'Среда', 4:'Четверг', 5:'Пятница', 6:'Суббота', 7:'Воскресенье'}
 
-#db = SqliteDatabase('bot.db')
+db = SqliteDatabase('bot.db')
 
 duplicate = [268653382, 5844335, -1001117829937]
 bd_email = "Bistriy_Design@mail.ru"
@@ -124,6 +124,7 @@ def greeting(message):
 		user = User.get(User.user_id == message.chat.id)
 		user.step = 1;
 		user.save()
+		PrintException()
 	first_name = message.chat.first_name
 	sender_id = message.chat.id
 	user = User.select().where(User.user_id == sender_id).get()
@@ -206,6 +207,7 @@ def email(sender_id, message):
 		back_button = types.KeyboardButton(bs.back)
 		markup.add(back_button)
 		bot.send_message(sender_id, bs.email, reply_markup=markup)
+		PrintException()
 	user.step += 1
 	user.save()
 
@@ -236,6 +238,7 @@ def mobile(sender_id, message):
 		back_button = types.KeyboardButton(bs.back)
 		markup.add(back_button)
 		bot.send_message(sender_id, bs.mobile, reply_markup=markup)
+		PrintException()
 	user.step = user.step + 1
 	user.save()
 	
@@ -290,14 +293,14 @@ def final(sender_id, message):
 			send_email(user.email, order)
 		except:
 			print("Mailing to user error")
-			PrintException()					
+			PrintException()	
 			
 		try:
 			send_email(bd_email, order)
 		except:
 			print("Mailing to dispatcher error")			
 			PrintException()
-
+			
 		for i in duplicate:
 			bot.send_message(i, order)	
 		try:
@@ -365,6 +368,7 @@ def reply(message):
 		step = user.step
 	except:
 		start(message)
+		PrintException()
 		return True
 	if message.text == bs.back:
 		if step > 0:
