@@ -9,6 +9,8 @@ from datetime import datetime, date, time
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import linecache
+import sys
 
 botname = '@Bistriy_Design_bot'
 token = '321912583:AAH5DhO3wq7-8T4QRZXoHL2eR7lO8TeY0gs'
@@ -21,6 +23,16 @@ db = SqliteDatabase('bot.db')
 
 duplicate = [268653382, 5844335, -1001117829937]
 bd_email = "Bistriy_Design@mail.ru"
+
+
+def PrintException():
+    exc_type, exc_obj, tb = sys.exc_info()
+    f = tb.tb_frame
+    lineno = tb.tb_lineno
+    filename = f.f_code.co_filename
+    linecache.checkcache(filename)
+    line = linecache.getline(filename, lineno, f.f_globals)
+    print ('EXCEPTION IN ({}, LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj))
 
 
 class User(Model):
@@ -69,6 +81,7 @@ def init(message):
 		db.create_table(Oferta)
 	except:
 		print("Error during table create")
+		PrintException()
 	user = User.create(user_id = message.chat.id, username = message.chat.username, step = 1)
 
 @bot.message_handler(commands = ['add_oferta'])
@@ -91,6 +104,7 @@ def reboot(message):
 		user.delete_instance()
 	except:
 		print("Error")
+		PrintException()
 
 @bot.message_handler(commands = ['start'])
 def start(message):
@@ -228,7 +242,11 @@ def mobile(sender_id, message):
 
 def rules(sender_id, message):
 	user = User.select().where(User.user_id == sender_id).get()
-	oferta = Oferta.select().where(Oferta.oferta_id == 1).get()
+	print('6 user:')
+	print(user.mobile)
+	oferta = Oferta.select().where(Oferta.oferta_id == 1).get()	
+	print('6 oferta:')
+	print(oferta.link)
 	if message.text != bs.back:
 		if message.text != bs.accept:
 			if re.match(r'^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{3,10}$', message.text):
@@ -252,11 +270,12 @@ def rules(sender_id, message):
 
 def final(sender_id, message):
 	user = User.select().where(User.user_id == sender_id).get()
+	oferta = Oferta.select().where(Oferta.oferta_id == 1).get()
 	if message.text != bs.agreement:
 		markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
 		back_button = types.KeyboardButton(bs.back)
 		markup.add(back_button)
-		bot.send_message(sender_id, bs.rules)
+		bot.send_message(sender_id, bs.rules.format(oferta.link), reply_markup=markup, parse_mode="Markdown")
 	else:
 		order = '''
 		Имя: {0} {1} ({2})
@@ -271,11 +290,13 @@ def final(sender_id, message):
 			send_email(user.email, order)
 		except:
 			print("Mailing to user error")
+			PrintException()
 
 		try:
 			send_email(bd_email, order)
 		except:
 			print("Mailing to dispatcher error")
+			PrintException()
 
 		for i in duplicate:
 			bot.send_message(i, order)	
@@ -283,6 +304,7 @@ def final(sender_id, message):
 			order = SentOrder.create(user_id = user.user_id, username = user.username, first_name = user.first_name, last_name = user.last_name, task = user.task, deadline = user.deadline, budget = user.budget, email = user.email, mobile = user.mobile)
 		except:
 			print("Can't save order")
+			PrintException()
 
 		markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
 		checkout_button = types.KeyboardButton(bs.checkout)
@@ -312,6 +334,7 @@ def send_email(address, text):
 		server.sendmail(fromaddr, toaddr, text)
 	except:
 		print("Mail send error")
+		PrintException()
 	server.quit()
 
 
@@ -325,6 +348,7 @@ def reply(message):
 			user.delete_instance()
 		except:
 			print("Error")
+			PrintException()
 		route(message.chat.id, message, 1)
 		return True
 	if message.text == bs.cancel:
@@ -355,21 +379,29 @@ def reply(message):
 		route(sender_id, message, step)
 	except:
 		print("Step error")
+		PrintException()
 
 def route(sender_id, message, step):
 	if step == 0 or step == 1 :
+		print('0' + ' ' + '1')
 		greeting(message)
 	if step == 2:
+		print(2)
 		deadline(sender_id, message)
 	if step == 3:
+		print(3)
 		budget(sender_id, message)
 	if step == 4:
+		print(4)
 		email(sender_id, message)
 	if step == 5:
+		print(5)
 		mobile(sender_id, message)
 	if step == 6:
+		print(6)
 		rules(sender_id, message)
 	if step == 7:
+		print(7)
 		final(sender_id, message)
 
 
