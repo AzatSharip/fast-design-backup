@@ -12,14 +12,14 @@ from email.mime.text import MIMEText
 import linecache
 import sys
 
-botname = '@Bistriy_Design_bot'
-token = '321912583:AAH5DhO3wq7-8T4QRZXoHL2eR7lO8TeY0gs'
-db_name = 'design_order_bot'
+#botname = '@Bistriy_Design_bot'
+#token = '321912583:AAH5DhO3wq7-8T4QRZXoHL2eR7lO8TeY0gs'
+#db_name = 'design_order_bot'
 bot = telebot.TeleBot(cfg.token)
 months = {1:'Январь', 2:'Февраль', 3:'Март', 4:'Апрель', 5:'Май', 6:'Июнь', 7:'Июль', 8:'Август', 9:'Сентябрь', 10:'Октябрь', 11:'Ноябрь', 12:'Декабрь'}
 weekdays = {1:'Понедельник', 2:'Вторник', 3:'Среда', 4:'Четверг', 5:'Пятница', 6:'Суббота', 7:'Воскресенье'}
 
-db = SqliteDatabase('bot.db')
+#db = SqliteDatabase('bot.db')
 
 duplicate = [268653382, 5844335, -1001117829937]
 bd_email = "Bistriy_Design@mail.ru"
@@ -80,7 +80,8 @@ def init(message):
 		db.create_table(SentOrder)
 		db.create_table(Oferta)
 	except:
-		print("Error during table create")		
+		print("Error during table create")
+		PrintException()		
 	user = User.create(user_id = message.chat.id, username = message.chat.username, step = 1)
 
 @bot.message_handler(commands = ['add_oferta'])
@@ -102,7 +103,8 @@ def reboot(message):
 		user = User.get(User.user_id == message.chat.id)
 		user.delete_instance()
 	except:
-		print("Error (message)")		
+		print("Error (message)")
+		PrintException()
 
 @bot.message_handler(commands = ['start'])
 def start(message):
@@ -287,19 +289,23 @@ def final(sender_id, message):
 		try:
 			send_email(user.email, order)
 		except:
-			print("Mailing to user error")			
-
+			print("Mailing to user error")
+			PrintException()					
+			
 		try:
 			send_email(bd_email, order)
 		except:
 			print("Mailing to dispatcher error")			
+			PrintException()
 
 		for i in duplicate:
 			bot.send_message(i, order)	
 		try:
 			order = SentOrder.create(user_id = user.user_id, username = user.username, first_name = user.first_name, last_name = user.last_name, task = user.task, deadline = user.deadline, budget = user.budget, email = user.email, mobile = user.mobile)
 		except:
-			print("Can't save order")			
+			print("Can't save order")
+			PrintException()
+			
 
 		markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
 		checkout_button = types.KeyboardButton(bs.checkout)
@@ -328,7 +334,8 @@ def send_email(address, text):
 	try:
 		server.sendmail(fromaddr, toaddr, text)
 	except:
-		print("Mail send error")		
+		print("Mail send error")
+		PrintException()
 	server.quit()
 
 
@@ -341,7 +348,8 @@ def reply(message):
 			user = User.select().where(User.user_id == sender_id).get()
 			user.delete_instance()
 		except:
-			print("Error (reply - 1)")			
+			print("Error (reply - 1)")
+			PrintException()
 		route(message.chat.id, message, 1)
 		return True
 	if message.text == bs.cancel:
