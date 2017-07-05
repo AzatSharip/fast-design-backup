@@ -80,8 +80,7 @@ def init(message):
 		db.create_table(SentOrder)
 		db.create_table(Oferta)
 	except:
-		print("Error during table create")
-		PrintException()
+		print("Error during table create")		
 	user = User.create(user_id = message.chat.id, username = message.chat.username, step = 1)
 
 @bot.message_handler(commands = ['add_oferta'])
@@ -103,8 +102,7 @@ def reboot(message):
 		user = User.get(User.user_id == message.chat.id)
 		user.delete_instance()
 	except:
-		print("Error")
-		PrintException()
+		print("Error (message)")		
 
 @bot.message_handler(commands = ['start'])
 def start(message):
@@ -289,22 +287,19 @@ def final(sender_id, message):
 		try:
 			send_email(user.email, order)
 		except:
-			print("Mailing to user error")
-			PrintException()
+			print("Mailing to user error")			
 
 		try:
 			send_email(bd_email, order)
 		except:
-			print("Mailing to dispatcher error")
-			PrintException()
+			print("Mailing to dispatcher error")			
 
 		for i in duplicate:
 			bot.send_message(i, order)	
 		try:
 			order = SentOrder.create(user_id = user.user_id, username = user.username, first_name = user.first_name, last_name = user.last_name, task = user.task, deadline = user.deadline, budget = user.budget, email = user.email, mobile = user.mobile)
 		except:
-			print("Can't save order")
-			PrintException()
+			print("Can't save order")			
 
 		markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
 		checkout_button = types.KeyboardButton(bs.checkout)
@@ -333,8 +328,7 @@ def send_email(address, text):
 	try:
 		server.sendmail(fromaddr, toaddr, text)
 	except:
-		print("Mail send error")
-		PrintException()
+		print("Mail send error")		
 	server.quit()
 
 
@@ -347,8 +341,7 @@ def reply(message):
 			user = User.select().where(User.user_id == sender_id).get()
 			user.delete_instance()
 		except:
-			print("Error")
-			PrintException()
+			print("Error (reply - 1)")			
 		route(message.chat.id, message, 1)
 		return True
 	if message.text == bs.cancel:
@@ -378,7 +371,7 @@ def reply(message):
 	try:
 		route(sender_id, message, step)
 	except:
-		print("Step error")
+		print("Step error (reply - 2)")
 		PrintException()
 
 def route(sender_id, message, step):
