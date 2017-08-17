@@ -9,12 +9,10 @@ from datetime import datetime, date, time
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-import linecache
-import sys
 
-#botname = '@Bistriy_Design_bot'
+botname = '@Bistriy_Design_bot'
 #token = '321912583:AAH5DhO3wq7-8T4QRZXoHL2eR7lO8TeY0gs'
-#db_name = 'design_order_bot'
+db_name = 'design_order_bot'
 bot = telebot.TeleBot(cfg.token)
 months = {1:'Январь', 2:'Февраль', 3:'Март', 4:'Апрель', 5:'Май', 6:'Июнь', 7:'Июль', 8:'Август', 9:'Сентябрь', 10:'Октябрь', 11:'Ноябрь', 12:'Декабрь'}
 weekdays = {1:'Понедельник', 2:'Вторник', 3:'Среда', 4:'Четверг', 5:'Пятница', 6:'Суббота', 7:'Воскресенье'}
@@ -23,16 +21,6 @@ db = SqliteDatabase('bot.db')
 
 duplicate = [268653382, 5844335, -1001117829937]
 bd_email = "Bistriy_Design@mail.ru"
-
-
-def PrintException():
-    exc_type, exc_obj, tb = sys.exc_info()
-    f = tb.tb_frame
-    lineno = tb.tb_lineno
-    filename = f.f_code.co_filename
-    linecache.checkcache(filename)
-    line = linecache.getline(filename, lineno, f.f_globals)
-    print ('EXCEPTION IN ({}, LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj))
 
 
 class User(Model):
@@ -49,6 +37,15 @@ class User(Model):
 
 	class Meta:
 		database = db
+
+
+class Admin(Model):
+	user_id = IntegerField(unique = True, primary_key = True)	
+	superuser = IntegerField(default=0)
+
+	class Meta:
+		database = db
+
 
 class SentOrder(Model):
 	order_id = IntegerField(unique = True, primary_key = True)
@@ -76,13 +73,116 @@ class Oferta(Model):
 def init(message):
 	#db.connect()
 	try:
-		db.create_table(User)
-		db.create_table(SentOrder)
-		db.create_table(Oferta)
+		try:
+			db.create_table(User)
+		except:
+			print("Error during table create User")
+
+		try:
+			db.create_table(SentOrder)
+		except:
+			print("Error during table create SentOrder")
+
+		try:
+			db.create_table(Oferta)
+		except:
+			print("Error during table create Oferta")
+
+		try:
+			db.create_table(Admin)
+		except:
+			print("Error during table create Admin")
 	except:
-		print("Error during table create")
-		PrintException()		
-	user = User.create(user_id = message.chat.id, username = message.chat.username, step = 1)
+		print("Error during tables create")
+	#user = User.create(user_id = message.chat.id, username =
+	#message.chat.username, step = 1)
+
+@bot.message_handler(commands = ['add_admin'])
+def add_admin(message):
+    p_chat_id = message.chat.id
+    p_user_id = re.sub('\D+', '', message.text)
+    if p_user_id:
+        keyboard = types.InlineKeyboardMarkup()
+        callback_button = types.InlineKeyboardButton(text="Удалить администратора", 
+            callback_data="del_admin " + str(p_user_id))
+        keyboard.add(callback_button)
+        try:
+            id = Admin.create(user_id = p_user_id)
+            user_id = id.user_id
+            if user_id:
+                bot.send_message(p_chat_id,
+                    "Пользователь с ID=" + str(user_id) + ", успешно добавлен в администраторы", 
+                    reply_markup=keyboard)
+        except:
+            user = Admin.select().where(Admin.user_id == p_user_id).get()
+            user.superuser = 0
+            if user.save():
+                bot.send_message(p_chat_id,
+                        "Суперпользователь с ID=" + str(p_user_id) + ", изменен на администратора",
+                        reply_markup=keyboard)
+
+
+@bot.message_handler(commands = ['add_superuser'])
+def add_suberuser(message):
+    p_user_id = re.sub('\D+', '', message.text)
+    p_chat_id = message.chat.id
+    if p_user_id:
+        keyboard = types.InlineKeyboardMarkup()
+        callback_button = types.InlineKeyboardButton(text="Удалить суперпользователя", 
+            callback_data="del_admin " + str(p_user_id))
+        keyboard.add(callback_button)
+        try:
+            id = Admin.create(user_id = p_user_id, superuser = 1)
+            user_id = id.user_id
+            if user_id:
+                bot.send_message(p_chat_id,
+                    "Суперпользователь с ID=" + str(user_id) + ", успешно добавлен", 
+                    reply_markup=keyboard)
+        except:
+            user = Admin.select().where(Admin.user_id == p_user_id).get()
+            user.superuser = 1
+            if user.save():
+                bot.send_message(p_chat_id,
+                        "Администратор с ID=" + str(p_user_id) + ", изменен на суперпользователя",
+                        reply_markup=keyboard)
+
+
+# получаем список пользователей
+@bot.message_handler(commands = ['users'])
+def get_users_list(message):
+    p_user_id = message.chat.id
+    keyboard = types.InlineKeyboardMarkup()
+    if p_user_id:
+        for user in Admin.select():
+            buttons = types.InlineKeyboardButton(text="Удалить пользователя ID = " + str(user.user_id),
+                                                 callback_data="del_admin " + str(user.user_id))
+            keyboard.add(buttons)
+        bot.send_message(p_user_id,
+                        "Список пользователей",
+                        reply_markup=keyboard)
+
+
+@bot.callback_query_handler(func=lambda call: True)
+def del_admin(call):
+    text = str(call.data)
+    p_user_id = re.sub('\D+', '', text)
+    p_chat_id = call.message.chat.id
+    #Удалить администратор
+    del_admin = re.match(r'del_admin', text)
+    if del_admin:
+        if p_user_id: 
+            try:
+                del_user = Admin.select().where(Admin.user_id == p_user_id).get()
+                if del_user.delete_instance():
+                    bot.edit_message_text(chat_id = p_chat_id,
+                                          message_id = call.message.message_id,
+                                          text = "Пользователь с ID=" + p_user_id + ", успешно удален из администраторов")
+                    get_users_list(call.message)
+            except:
+                bot.edit_message_text(chat_id = p_chat_id,
+                                      message_id = call.message.message_id,
+                                      text = "Пользователь с ID=" + p_user_id + ", не найден")
+
 
 @bot.message_handler(commands = ['add_oferta'])
 def add_oferta(message):
@@ -103,8 +203,7 @@ def reboot(message):
 		user = User.get(User.user_id == message.chat.id)
 		user.delete_instance()
 	except:
-		print("Error (message)")
-		PrintException()
+		print("Error")
 
 @bot.message_handler(commands = ['start'])
 def start(message):
@@ -115,16 +214,13 @@ def start(message):
 	markup.add(checkout_button)
 	bot.send_message(sender_id, bs.greeting.format(first_name), reply_markup=markup)
 
-
-
 def greeting(message):
 	try:
 		user = User.create(user_id = message.chat.id, username = message.chat.username, first_name = message.chat.first_name, last_name = message.chat.last_name, step = 1)
 	except:
 		user = User.get(User.user_id == message.chat.id)
-		user.step = 1;
+		user.step = 1
 		user.save()
-		PrintException()
 	first_name = message.chat.first_name
 	sender_id = message.chat.id
 	user = User.select().where(User.user_id == sender_id).get()
@@ -166,7 +262,7 @@ def budget(sender_id, message):
 				return False
 			dt = datetime.now()
 			dt = dt.replace(month=month, day=day)
-			final_date = str(day)+' {0} ({1})'.format(months[month], weekdays[dt.isoweekday()])
+			final_date = str(day) + ' {0} ({1})'.format(months[month], weekdays[dt.isoweekday()])
 			user.deadline = final_date
 			
 	markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
@@ -195,7 +291,7 @@ def email(sender_id, message):
 		user.budget = message.text
 	markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
 	try:
-		order =SentOrder.select().where(SentOrder.user_id == sender_id).order_by(-SentOrder.order_id).get()
+		order = SentOrder.select().where(SentOrder.user_id == sender_id).order_by(-SentOrder.order_id).get()
 		accept_button = types.KeyboardButton(bs.accept)
 		back_button = types.KeyboardButton(bs.back)
 		cancel_button = types.KeyboardButton(bs.cancel)
@@ -207,7 +303,6 @@ def email(sender_id, message):
 		back_button = types.KeyboardButton(bs.back)
 		markup.add(back_button)
 		bot.send_message(sender_id, bs.email, reply_markup=markup)
-		PrintException()
 	user.step += 1
 	user.save()
 
@@ -222,11 +317,11 @@ def mobile(sender_id, message):
 				bot.send_message(sender_id, bs.email_error)
 				return False
 		else:
-			order =SentOrder.select().where(SentOrder.user_id == sender_id).order_by(-SentOrder.order_id).get()
+			order = SentOrder.select().where(SentOrder.user_id == sender_id).order_by(-SentOrder.order_id).get()
 			user.email = order.email
 	markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
 	try:
-		order =SentOrder.select().where(SentOrder.user_id == sender_id).order_by(-SentOrder.order_id).get()
+		order = SentOrder.select().where(SentOrder.user_id == sender_id).order_by(-SentOrder.order_id).get()
 		accept_button = types.KeyboardButton(bs.accept)
 		back_button = types.KeyboardButton(bs.back)
 		cancel_button = types.KeyboardButton(bs.cancel)
@@ -238,18 +333,13 @@ def mobile(sender_id, message):
 		back_button = types.KeyboardButton(bs.back)
 		markup.add(back_button)
 		bot.send_message(sender_id, bs.mobile, reply_markup=markup)
-		PrintException()
 	user.step = user.step + 1
 	user.save()
 	
 
 def rules(sender_id, message):
 	user = User.select().where(User.user_id == sender_id).get()
-	print('6 user:')
-	print(user.mobile)
-	oferta = Oferta.select().where(Oferta.oferta_id == 1).get()	
-	print('6 oferta:')
-	print(oferta.link)
+	oferta = Oferta.select().where(Oferta.oferta_id == 1).get()
 	if message.text != bs.back:
 		if message.text != bs.accept:
 			if re.match(r'^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{3,10}$', message.text):
@@ -258,7 +348,7 @@ def rules(sender_id, message):
 				bot.send_message(sender_id, bs.mobile_error)
 				return False
 		else:
-			order =SentOrder.select().where(SentOrder.user_id == sender_id).order_by(-SentOrder.order_id).get()
+			order = SentOrder.select().where(SentOrder.user_id == sender_id).order_by(-SentOrder.order_id).get()
 			user.mobile = order.mobile
 	markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
 	agreement_button = types.KeyboardButton(bs.agreement)
@@ -273,12 +363,11 @@ def rules(sender_id, message):
 
 def final(sender_id, message):
 	user = User.select().where(User.user_id == sender_id).get()
-	oferta = Oferta.select().where(Oferta.oferta_id == 1).get()
 	if message.text != bs.agreement:
 		markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
 		back_button = types.KeyboardButton(bs.back)
 		markup.add(back_button)
-		bot.send_message(sender_id, bs.rules.format(oferta.link), reply_markup=markup, parse_mode="Markdown")
+		bot.send_message(sender_id, bs.rules)
 	else:
 		order = '''
 		Имя: {0} {1} ({2})
@@ -293,22 +382,18 @@ def final(sender_id, message):
 			send_email(user.email, order)
 		except:
 			print("Mailing to user error")
-			PrintException()	
-			
+
 		try:
 			send_email(bd_email, order)
 		except:
-			print("Mailing to dispatcher error")			
-			PrintException()
-			
+			print("Mailing to dispatcher error")
+
 		for i in duplicate:
 			bot.send_message(i, order)	
 		try:
 			order = SentOrder.create(user_id = user.user_id, username = user.username, first_name = user.first_name, last_name = user.last_name, task = user.task, deadline = user.deadline, budget = user.budget, email = user.email, mobile = user.mobile)
 		except:
 			print("Can't save order")
-			PrintException()
-			
 
 		markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
 		checkout_button = types.KeyboardButton(bs.checkout)
@@ -338,7 +423,6 @@ def send_email(address, text):
 		server.sendmail(fromaddr, toaddr, text)
 	except:
 		print("Mail send error")
-		PrintException()
 	server.quit()
 
 
@@ -351,8 +435,7 @@ def reply(message):
 			user = User.select().where(User.user_id == sender_id).get()
 			user.delete_instance()
 		except:
-			print("Error (reply - 1)")
-			PrintException()
+			print("Error")
 		route(message.chat.id, message, 1)
 		return True
 	if message.text == bs.cancel:
@@ -368,7 +451,6 @@ def reply(message):
 		step = user.step
 	except:
 		start(message)
-		PrintException()
 		return True
 	if message.text == bs.back:
 		if step > 0:
@@ -383,30 +465,22 @@ def reply(message):
 	try:
 		route(sender_id, message, step)
 	except:
-		print("Step error (reply - 2)")
-		PrintException()
+		print("Step error")
 
 def route(sender_id, message, step):
 	if step == 0 or step == 1 :
-		print('0' + ' ' + '1')
 		greeting(message)
 	if step == 2:
-		print(2)
 		deadline(sender_id, message)
 	if step == 3:
-		print(3)
 		budget(sender_id, message)
 	if step == 4:
-		print(4)
 		email(sender_id, message)
 	if step == 5:
-		print(5)
 		mobile(sender_id, message)
 	if step == 6:
-		print(6)
 		rules(sender_id, message)
 	if step == 7:
-		print(7)
 		final(sender_id, message)
 
 
