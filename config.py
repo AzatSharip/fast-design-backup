@@ -1,3 +1,3 @@
 botname = '@Bistriy_Design_bot'
-token = '441846101:AAE9jA-OYPlSzPu2lA2CWVjcK3wN2zQJmlM'
+token = '1001253586:AAF0dtLaEu_RKkaVuJQVjb3rTF1jrmgJ4-I'
 db_name = 'Bistriy Design'
